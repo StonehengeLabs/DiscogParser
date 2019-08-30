@@ -104,43 +104,6 @@ QHash<int, QList<CollectionItem> > ImportCollectionCsvFile(const QString& fileNa
    return collectionItems;
 }
 
-/*
-bool ParseReleaseIds(const QString& fileName, QSet<int>& ids)
-{
-   QFile file(fileName);
-   if (!file.open(QFile::ReadOnly)) {
-      return false;
-   }
-
-   QStringList lines = QString::fromUtf8(file.readAll()).split("\n");
-   lines.pop_front(); // Header.
-
-   foreach(const QString& line, lines) {
-      // std::cout << line.toLatin1().data() << std::endl;
-      int commaCount = 0;
-      bool inString = false;
-      int id;
-      for (int index = 0; index < line.size(); index++) {
-         if (line.at(index) == '\"') {
-            inString = !inString;
-         }
-         else if (line.at(index) == ',') {
-            if (!inString) {
-               if (++commaCount == 7) {
-                  id = ::atoi(line.mid(index + 1).toLatin1().data());
-                  break;
-               }
-            }
-         }
-      }
-      // std::cout << id << std::endl;
-      ids.insert(id);
-   }
-
-   return true;
-}
-*/
-
 class Extractor
 {
 public:
@@ -505,21 +468,6 @@ void Extractor::ParseLabelAndCatno(QString& label, QString& catno)
    label = reader.attributes().value("name") .toString().trimmed();
    catno = reader.attributes().value("catno").toString().trimmed();
 
-/*
-std::cout << reader.name().toLatin1().data() << std::endl;
-
-   ParseCurrentElement( [ this, &name, &cat ] () {
-      // std::cout << publisherCompound.toString().toLatin1().data() << std::endl;
-      
-      if (reader.name() == "name") {
-         ParseCurrentElement(skipCurrentElement, name);
-      } else if (reader.name() == "catno") {
-         ParseCurrentElement(skipCurrentElement, cat);
-      } else {
-         SkipCurrentElement();
-      }
-   } );
-*/
    if (label.isEmpty()) {
       label = "Unknown";
    }
@@ -530,8 +478,6 @@ std::cout << reader.name().toLatin1().data() << std::endl;
 int main(int argc, char* argv[])
 {
    QString idsFileName = "vansteve-collection.csv";
-   // QSet<int> ids;
-   // ParseReleaseIds(idsFileName, ids);
    QHash<int, QList<CollectionItem> > collectionItems = ImportCollectionCsvFile(idsFileName);
 
    bool verbose = true;
@@ -542,15 +488,7 @@ int main(int argc, char* argv[])
    if (!file.open(QFile::ReadOnly)) {
       return 1;
    }
-/*
-      QByteArray data = file.read(5 * 50000000);
-      data = file.read(2 * 50000000);
-      QFile out("discogs_sample.xml");
-      out.open(QFile::WriteOnly);
-      out.write(data);
-      out.close();
-      return 0;
-*/
+
    QXmlStreamReader reader(&file);
 
    Extractor extractor(reader, collectionItems);
@@ -575,110 +513,3 @@ int main(int argc, char* argv[])
 
    return 0;
 }
-
-
-/*
-int main(int argc, char* argv[])
-{
-   QString idsFileName = "c:/Bulk/discogs_20170701_releases.xml.gz/discogs_20170701_releases.xml/vansteve-collection-20170724-1232.csv";
-   QSet<int> ids;
-   ParseReleaseIds(idsFileName, ids);
-
-   bool verbose = false;
-
-   QJsonObject objReleases;
-
-   QString fileName = "c:/Bulk/discogs_20170701_releases.xml.gz/discogs_20170701_releases.xml/discogs_20170701_releases.xml";
-
-   QFile file(fileName);
-   if (!file.open(QFile::ReadOnly)) {
-      return 1;
-   }
-   QXmlStreamReader reader(&file);
-
-   int depth = 0;
-   QStringList stack;
-   int currentReleaseId = -1;
-
-   while (!reader.atEnd()) {
-      QXmlStreamReader::TokenType tokenType = reader.readNext();
-      if (reader.hasError()) {
-         std::cerr << reader.errorString().toLatin1().data();
-         return 2;
-      }
-      switch (tokenType) {
-         case QXmlStreamReader::StartDocument: {
-            QString codecName = reader.documentEncoding().toString();
-            if (codecName.isEmpty()) {
-               codecName = "UTF-8";
-            }
-            QTextCodec* codec = QTextCodec::codecForName(codecName.toUtf8());
-            if (codec == 0) {
-               std::cerr << "Invalid codec." << std::endl;
-               return 3;
-            }
-            break;
-         }
-         case QXmlStreamReader::StartElement: {
-            QString name = reader.name().toString();
-            stack.append(name);
-            if (verbose) {
-               PrintIndent(depth);
-               std::cout << "<" << name.toLatin1().data() << ">" << std::endl;
-            }
-            QXmlStreamAttributes attributes = reader.attributes();
-            foreach(auto att, attributes) {
-               if (verbose) {
-                  PrintIndent(depth + 1);
-                  std::cout << att.name().toLatin1().data() << " = " << att.value().toLatin1().data() << std::endl;
-                  //if (name == "release" && att.name() == "id" && att.value() == "2126") {
-                  //   __debugbreak();
-                  //}
-               }
-               if (stack.join("/") == "releases/release" && att.name() == "id") {
-                  int id = att.value().toInt();
-                  if (ids.contains(id)) {
-                     currentReleaseId = id;
-                  }
-                  if (id == 31000) verbose = true;
-                  if (id == 32000) verbose = false;
-               }
-
-            }
-            ++depth;
-            break;
-         }
-         case QXmlStreamReader::EndElement: {
-            if (verbose) {
-               PrintIndent(depth);
-               std::cout << "<>" << std::endl;
-            }
-            --depth;
-            stack.takeLast();
-            if (stack.join("/") == "releases") {
-               currentReleaseId = -1;
-            }
-            break;
-         }
-         case QXmlStreamReader::Characters: {
-            if (!reader.isWhitespace()) {
-               if (stack.join("/") == "releases/release/title" && currentReleaseId > 0) {
-                  std::cout << currentReleaseId << " " << reader.text().toString().toLatin1().data() << std::endl;
-
-               }
-               if (verbose) {
-                  PrintIndent(depth);
-                  std::cout << "\"" << reader.text().toString().toLatin1().data() << "\"" << std::endl;
-               }
-            }
-            break;
-         }
-      }
-   }
-
-   return 0;
-}
-
-
-
-*/
