@@ -477,12 +477,17 @@ void Extractor::ParseLabelAndCatno(QString& label, QString& catno)
 
 int main(int argc, char* argv[])
 {
-   QString idsFileName = "vansteve-collection.csv";
+   if (argc < 3) {
+      std::cerr << "Usage: DiscogParser.exe <discogs-releases-file> <collection-export-file>" << std::endl;
+      return 1;
+   }
+
+   QString idsFileName(argv[2]);
    QHash<int, QList<CollectionItem> > collectionItems = ImportCollectionCsvFile(idsFileName);
 
    bool verbose = true;
 
-   QString fileName = "discogs_releases.xml";
+   QString fileName(argv[1]);
 
    QFile file(fileName);
    if (!file.open(QFile::ReadOnly)) {
